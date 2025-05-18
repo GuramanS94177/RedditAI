@@ -1,5 +1,4 @@
-from flask import render_template
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import re
 import time
 import ast
@@ -93,42 +92,16 @@ def fetch_reddit_posts_from_urls(urls):
             pass
     return posts_data
 
-def generate_answer(user_question, posts_data, style_instructions=None):
-    context = ""
-    for post in posts_data:
-        context += f"\n### Post: {post['title']}\n"
-        for comment in post['comments']:
-            context += f"- {comment}\n"
-    style_text = ""
-    if style_instructions:
-        style_text = f"\nAdditional instructions on style/length: {style_instructions}\n"
-    prompt = f"""
-You are a helpful AI assistant. Based on the Reddit posts and comments below, answer the user's question clearly and directly.
-
-User Question: {user_question}
-
-Reddit context:
-{context}
-
-Instructions:
-- Provide an accurate and balanced answer based on Reddit opinions.
-- Use paragraphs, lists, or other formats as suitable.
-- Mention differences in opinions if any.
-- Avoid irrelevant info, sales listings, or spam.
-- Be concise but informative.
-{style_text}
-"""
-    response = model.generate_content(prompt)
-    return response.text.strip()
-
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
     return render_template("index.html")
-    
+
 @app.route("/ask", methods=["POST"])
 def ask():
-    data = request.json
+    data = request.get_json()
     question = data.get("question")
+    prev_context = data.get("context", "")  # previous conversation context
+
     if not question:
         return jsonify({"error": "Missing 'question' field"}), 400
 
@@ -144,11 +117,35 @@ def ask():
     if not posts_data:
         return jsonify({"error": "Could not fetch Reddit posts"}), 404
 
-    answer = generate_answer(question, posts_data)
+    # Build the combined context: previous conversation + new Reddit info
+    context_text = prev_context + "\n\n" + "\n".join(
+        [f"Post: {post['title']} - Comments: {' | '.join(post['comments'])}" for post in posts_data]
+    )
+
+    prompt = f"""
+You are a helpful AI assistant. Use the conversation context below and Reddit posts/comments to answer the user's question clearly and directly.
+
+Conversation Context:
+{context_text}
+
+User Question:
+{question}
+
+Instructions:
+- Provide an accurate and balanced answer based on Reddit opinions.
+- Be concise but informative.
+"""
+
+    response = model.generate_content(prompt)
+    answer = response.text.strip()
+
+    # Update context with this Q&A for future follow-ups
+    updated_context = context_text + f"\nUser: {question}\nAI: {answer}"
 
     return jsonify({
         "question": question,
         "answer": answer,
+        "context": updated_context,
         "keywords": keywords,
         "reddit_urls": reddit_urls,
     })
