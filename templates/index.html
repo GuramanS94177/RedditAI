@@ -1,13 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ask Reddit AI</title>
+  <title>Ask Reddit AI</title>
 </head>
 <body>
-    <h2>Ask a Question</h2>
-    <form method="post" action="/ask">
-        <textarea name="question" rows="4" cols="50" placeholder="Ask anything"></textarea><br>
-        <button type="submit">Ask</button>
-    </form>
+  <h2>Ask a Question</h2>
+  <textarea id="question" rows="4" cols="50" placeholder="Ask anything"></textarea><br>
+  <button onclick="askQuestion()">Ask</button>
+
+  <h3>Answer:</h3>
+  <pre id="answer" style="white-space: pre-wrap; border: 1px solid #ccc; padding: 10px;"></pre>
+
+  <script>
+    async function askQuestion() {
+      const question = document.getElementById("question").value.trim();
+      if (!question) {
+        alert("Please enter a question.");
+        return;
+      }
+
+      document.getElementById("answer").textContent = "Loading...";
+
+      try {
+        const response = await fetch('/ask', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ question })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          document.getElementById("answer").textContent = `Error: ${errorData.error || 'Unknown error'}`;
+          return;
+        }
+
+        const data = await response.json();
+        document.getElementById("answer").textContent = data.answer;
+      } catch (err) {
+        document.getElementById("answer").textContent = "Error contacting the server.";
+      }
+    }
+  </script>
 </body>
 </html>
