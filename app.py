@@ -1,3 +1,4 @@
+from flask import render_template
 from flask import Flask, request, jsonify
 import re
 import time
@@ -120,6 +121,10 @@ Instructions:
     response = model.generate_content(prompt)
     return response.text.strip()
 
+@app.route("/", methods=["GET"])
+def home():
+    return render_template("index.html")
+    
 @app.route("/ask", methods=["POST"])
 def ask():
     data = request.json
