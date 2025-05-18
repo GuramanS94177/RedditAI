@@ -1,0 +1,4 @@
+flask
+praw
+google-generativeai
+googlesearch-python
